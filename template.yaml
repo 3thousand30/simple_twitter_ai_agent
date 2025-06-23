@@ -1,0 +1,104 @@
+# template.yaml - AWS SAM template for deployment
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'AI-powered Twitter posting agent'
+
+Parameters:
+  SecretName:
+    Type: String
+    Default: 'twitter-bot-secrets'
+    Description: 'Name of the secret in AWS Secrets Manager'
+  
+  ScheduleRate:
+    Type: String
+    Default: 'rate(5 hours)'
+    Description: 'How often to run the bot (default: every 5 hours for ~5 executions per day)'
+
+Globals:
+  Function:
+    Timeout: 300
+    Runtime: nodejs18.x
+    Environment:
+      Variables:
+        SECRET_NAME: !Ref SecretName
+        STATE_TABLE: !Ref StateTable
+        SAMPLE_TWEETS_TABLE: !Ref SampleTweetsTable
+
+Resources:
+  # Lambda Function
+  TwitterBotFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: twitter-ai-agent
+      CodeUri: ./
+      Handler: index.handler
+      MemorySize: 256
+      Events:
+        ScheduledExecution:
+          Type: Schedule
+          Properties:
+            Schedule: !Ref ScheduleRate
+            Description: 'Trigger Twitter bot execution'
+            Enabled: true
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref StateTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SampleTweetsTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - 'secretsmanager:GetSecretValue'
+              Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${SecretName}*'
+
+  # DynamoDB Tables
+  StateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: TwitterBotState
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  SampleTweetsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: TwitterBotSampleTweets
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  # CloudWatch Log Group
+  TwitterBotLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${TwitterBotFunction}'
+      RetentionInDays: 14
+
+Outputs:
+  TwitterBotFunctionArn:
+    Description: 'Twitter Bot Lambda Function ARN'
+    Value: !GetAtt TwitterBotFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-TwitterBotFunctionArn'
+  
+  StateTableName:
+    Description: 'DynamoDB State Table Name'
+    Value: !Ref StateTable
+    Export:
+      Name: !Sub '${AWS::StackName}-StateTable'
+  
+  SampleTweetsTableName:
+    Description: 'DynamoDB Sample Tweets Table Name'
+    Value: !Ref SampleTweetsTable
+    Export:
+      Name: !Sub '${AWS::StackName}-SampleTweetsTable'

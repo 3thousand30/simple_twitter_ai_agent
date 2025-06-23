@@ -138,11 +138,26 @@ const THEMES = {
 
 ## 🚀 Deployment
 
-Use the included deployment configuration for AWS:
-- Lambda function with scheduled triggers
-- DynamoDB tables with TTL for recent tweets
-- IAM roles and permissions
-- CloudWatch logging
+Use the included `template.yaml` for easy AWS deployment:
+
+```bash
+# Build and deploy with AWS SAM
+sam build
+sam deploy --guided
+```
+
+See `DEPLOYMENT.md` for detailed setup instructions including:
+- AWS CLI and SAM CLI installation
+- Secrets Manager configuration
+- Database initialization
+- Monitoring and troubleshooting
+
+**Manual AWS Setup (without template):**
+- Create Lambda function with Node.js 18.x runtime
+- Create 2 DynamoDB tables: `TwitterBotState` and `TwitterBotSampleTweets`
+- Set up EventBridge rule for scheduling (every 5 hours)
+- Configure environment variables and IAM permissions
+- Store credentials in Secrets Manager
 
 Alternative platforms: Vercel, Netlify Functions, Google Cloud Functions, or any Node.js hosting.
 
@@ -153,7 +168,11 @@ Planned Enhancements:
 
 ## 🌟 Live Example
 
-Currently active on [@ProyogiBaba](https://x.com/ProyogiBaba) using a custom model, demonstrating real-world thematic content generation and engagement.
+Currently running on [@ProyogiBaba](https://x.com/ProyogiBaba) as part of [devyo.life](https://devyo.life), demonstrating real-world thematic content generation with a custom model. The bot maintains consistent engagement while cycling through diverse content themes.
+
+## 💬 Contact & Contributions
+
+For feedback, questions, or contributions, reach out to [hello@devyo.life](mailto:hello@devyo.life). We welcome community input to improve the AI agent's capabilities and expand its features.
 
 ## 📝 License
 
