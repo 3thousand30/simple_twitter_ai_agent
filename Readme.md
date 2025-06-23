@@ -2,6 +2,10 @@
 
 An intelligent Twitter posting bot that generates and publishes 30 tweets per day across 4 content themes using AI. The agent analyzes sample tweets to learn brand voice and maintains thematic variety while avoiding repetitive content.
 
+## Important Note
+
+This tool is designed to operate within X API's free tier limits and will always stay within these constraints. We will continue to add features that are possible within the free tier's generous allowances, but won't implement functionality that requires paid API access.
+
 ## 🚀 Capabilities
 
 - **AI-Powered Content Generation**: Uses LLM providers to create authentic, varied tweets
