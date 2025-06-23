@@ -1,0 +1,7 @@
+node_modules/
+.env
+.aws-sam/
+*.zip
+.DS_Store
+secrets.json
+config/local.json
