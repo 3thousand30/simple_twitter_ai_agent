@@ -1,3 +1,5 @@
+# FOR EDUCATIONAL PURPOSE
+
 # AI-Powered Twitter Agent
 
 An intelligent Twitter posting bot that generates and publishes 30 tweets per day across 4 content themes using AI. The agent analyzes sample tweets to learn brand voice and maintains thematic variety while avoiding repetitive content.
