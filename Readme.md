@@ -174,11 +174,11 @@ Planned Enhancements:
 
 ## 🌟 Live Example
 
-Currently running on [@ProyogiBaba](https://x.com/ProyogiBaba) as part of [devyo.life](https://devyo.life), demonstrating real-world thematic content generation with a custom model. The bot maintains consistent engagement while cycling through diverse content themes.
+Currently running on [@ProyogiBaba](https://x.com/ProyogiBaba) demonstrating real-world thematic content generation with a custom model. The bot maintains consistent engagement while cycling through diverse content themes.
 
 ## 💬 Contact & Contributions
 
-For feedback, questions, or contributions, reach out to [hello@devyo.life](mailto:hello@devyo.life). We welcome community input to improve the AI agent's capabilities and expand its features.
+For feedback, questions, or contributions, reach out to [here]((https://github.com/3thousand30/simple_twitter_ai_agent/issues/1)). We welcome community input to improve the AI agent's capabilities and expand its features.
 
 ## 📝 License
 
