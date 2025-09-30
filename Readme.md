@@ -36,7 +36,7 @@ A key part of this project is the `constructPrompt` function. It shows how to gu
 This demonstrates how **prompt design** can turn a basic model call into a controlled, reusable content engine.  
 
 
-## 🏗️ AWS Architecture
+## 🏗️ AWS-based Architecture
 
 - **AWS Lambda**: Serverless execution with scheduled triggers (every ~5 hours)  
 - **DynamoDB**: Stores state and sample tweets  
@@ -62,7 +62,7 @@ const sampleTweets = [
 ];
 ```
 ### 3. Secrets Configuration
-Store in AWS Secrets Manager or environment variables:
+**Option A**: Store in AWS Secrets Manager or environment variables:
 ```json
 {
   "twitter_api_key": "your_key",
@@ -73,6 +73,16 @@ Store in AWS Secrets Manager or environment variables:
   "ai_provider_api_key": "your_ai_key",
   "ai_model": "model_name"
 }
+```
+**Option B**: Environment Variables, for local testing or Lambda console
+```
+   export twitter_api_key=your_key
+   export twitter_api_secret=your_secret
+   export twitter_access_token=your_token
+   export twitter_access_token_secret=your_token_secret
+   export ai_provider=anthropic
+   export ai_provider_api_key=your_ai_key
+   export ai_model=claude-3-haiku-20240307
 ```
 
 ## 🤖 LLM Provider Examples
@@ -189,7 +199,7 @@ Alternative platforms: Vercel, Netlify Functions, Google Cloud Functions, or any
 
 ## 🔄 Roadmap
 
-- Recent Tweets Tracking: rack recently posted tweets to reduce repetition.
+- Recent Tweets Tracking: Track recently posted tweets to reduce repetition.
 - Voice Analysis Engine: Add a voice analysis engine to detect tone and sentence patterns automatically.
 
 ## 🌟 Live Example
