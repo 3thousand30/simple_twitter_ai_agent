@@ -10,7 +10,6 @@ It is designed mainly for **education and exploration**:
 
 The setup is ready to run but also easy to extend — so it goes beyond a proof of concept.  
 
----
 
 ## 🔑 Highlights
 
@@ -22,7 +21,6 @@ The setup is ready to run but also easy to extend — so it goes beyond a proof 
 - **Stateless but progressive**: Each run is independent while cycling through themes  
 - **Provider flexibility**: Works with Anthropic, OpenAI, DeepSeek, or any compatible model  
 
----
 
 ## 🧠 Prompting & AI Optimization
 
