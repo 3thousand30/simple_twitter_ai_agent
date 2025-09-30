@@ -33,6 +33,7 @@ A key part of this project is the `constructPrompt` function. It shows how to gu
 - **Parsing-friendly output**: Tweets are returned in a clear format  
 
 This demonstrates how **prompt design** can turn a basic model call into a controlled, reusable content engine.  
+
 ---
 
 
