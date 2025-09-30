@@ -1,63 +1,62 @@
 # AI Twitter Posting Agent (Educational Project)
 
-A ready-to-use agent that shows how AI can post content on Twitter (X). By default it generates up to **30 tweets per day** across four themes, using sample tweets to capture brand voice and maintain variety. The number of posts can be adjusted as needed.
+This project shows how to build a simple AI-driven posting agent for Twitter (X).  
+By default it generates **15 tweets per day** across multiple themes, using sample tweets to learn tone and style.  
 
-This project is mainly for **education and exploration**: a way to learn how to connect large language models (LLMs) with simple agents, apply basic MLP-style functionality, and see how posting automation works in practice. It goes beyond a basic POC, offering enough structure to be adapted or scaled.
+It is designed mainly for **education and exploration**:  
+- Learn how to connect large language models (LLMs) with simple agents  
+- Apply basic MLP-style functionality in a practical setting  
+- See how scheduling, state management, and prompt design work in practice  
 
-## Important Context
+The setup is ready to run but also easy to extend — so it goes beyond a proof of concept.  
 
-- **Educational purpose**: Learn how to build and run AI-driven posting agents.  
-- **Free tier by default**: Operates within X API’s free limits.  
-- **Scalable**: Can be extended to the paid tier (from $200/month) or enhanced with more advanced features.  
-- **Flexible design**: Modular, serverless setup makes it easy to extend with new themes or providers.  
+---
 
-## 🚀 Capabilities
+## 🔑 Highlights
 
-- **AI content generation**: Uses LLMs to produce varied, natural tweets.  
-- **Organised themes and subthemes**: Posts are spread across 4 themes with 5 subthemes each, balancing content and making it easy to adjust or extend.  
-- **Configurable posting volume**: Default is 30 tweets per day, but this can be modified to suit your needs.  
-- **Voice alignment**: Learns from sample tweets to stay consistent with brand style.  
-- **Variation control**: Prompting techniques reduce repetition and improve diversity.  
-- **Stateless but progressive**: Each run is independent while still advancing through the theme cycle.  
-- **Provider flexibility**: Works with OpenAI, Anthropic, DeepSeek, or any compatible model.  
+- **AI content generation**: Produces tweets that are varied, natural, and theme-aware  
+- **Themes and subthemes**: Organises posts into 4–5 themes with subthemes for balance and variety  
+- **Configurable volume**: Default is 15 tweets per day, but you can change it in code or schedule  
+- **Voice alignment**: Learns from your sample tweets to stay on-brand  
+- **Prompting best practices**: Uses structured prompts with rules for variation, hashtags, and tone  
+- **Stateless but progressive**: Each run is independent while cycling through themes  
+- **Provider flexibility**: Works with Anthropic, OpenAI, DeepSeek, or any compatible model  
+
+---
 
 ## 🧠 Prompting & AI Optimization
 
-A key strength of this project is the way it builds prompts for the LLM.  
-The `constructPrompt` function combines **context, examples, and explicit rules** to make the output more authentic and varied.  
+A key part of this project is the `constructPrompt` function. It shows how to guide an LLM to produce consistent, useful output:
 
-### What the prompt does
-- **Theme awareness**: Passes the current theme, subtheme, and description into the model.  
-- **Voice alignment**: Injects sample tweets for style analysis (tone, structure, engagement).  
-- **Content rules**: Forces use of one specific hashtag, correct length (100–280 chars), and no unnecessary extras.  
-- **Variation techniques**: Encourages mixing of formats (questions, statements, tips), sentence length, and perspectives.  
-- **Output format**: Uses a clear instruction (`TWEET:` prefix) so results are easy to parse.  
+- **Theme awareness**: Passes theme, subtheme, and description to the model  
+- **Voice analysis**: Uses sample tweets to match tone, structure, and engagement style  
+- **Content rules**: Forces correct tweet length and one hashtag per subtheme  
+- **Variation control**: Encourages mixed formats (questions, tips, statements)  
+- **Parsing-friendly output**: Tweets are returned in a clear format  
 
-### Why it matters
-- Keeps tweets **consistent with brand voice**.  
-- Avoids repetitive structures and content fatigue.  
-- Makes the agent adaptable to any dataset of sample tweets.  
-- Shows a practical example of **prompt engineering best practices** for real-world tasks.  
+This demonstrates how **prompt design** can turn a basic model call into a controlled, reusable content engine.  
 
-This approach can be reused or extended for other AI agents — e.g., blog writing, captions, or LinkedIn posts — where **style and variation** are as important as accuracy.  
+---
 
+## 🏗️ AWS Architecture
 
-## 🏗️ Architecture
+- **AWS Lambda**: Serverless execution with scheduled triggers (every ~5 hours)  
+- **DynamoDB**: Stores state and sample tweets  
+- **Secrets Manager**: Keeps credentials secure  
+- **EventBridge**: Automates scheduling  
 
-Built for AWS Lambda but adaptable to any serverless platform:
-- **AWS Lambda**: Serverless execution with scheduled triggers
-- **DynamoDB**: State persistence and sample tweet storage
-- **Secrets Manager**: Secure credential management
-- **EventBridge**: Automated scheduling (every ~5 hours)
+---
 
 ## 🔧 Setup
 
-### 1. Database Setup
-```bash
-node setup-dynamodb.js
+### 1. Install dependencies
+   ```bash
+   npm install
 ```
-
-### 2. Sample Tweets
+### 2. Database Setup and add sample tweets
+  ```bash
+  node setup-dynamodb.js
+```
 Add your brand's sample tweets to DynamoDB:
 ```javascript
 const sampleTweets = [
@@ -65,7 +64,6 @@ const sampleTweets = [
   // Add 10-20 sample tweets per subtheme
 ];
 ```
-
 ### 3. Secrets Configuration
 Store in AWS Secrets Manager or environment variables:
 ```json
@@ -192,18 +190,18 @@ See `DEPLOYMENT.md` for detailed setup instructions including:
 
 Alternative platforms: Vercel, Netlify Functions, Google Cloud Functions, or any Node.js hosting.
 
-## 🔄 Coming Up
-Planned Enhancements:
-- Recent Tweets Tracking: Add DynamoDB table to store last 'x' tweets and pass to AI prompt for better repetition avoidance.
-- Voice Analysis Engine: Implement automatic analysis of sample tweets to extract tone patterns, sentence structures, and engagement techniques for more authentic voice matching.
+## 🔄 Roadmap
+
+- Recent Tweets Tracking: rack recently posted tweets to reduce repetition.
+- Voice Analysis Engine: Add a voice analysis engine to detect tone and sentence patterns automatically.
 
 ## 🌟 Live Example
 
-Currently running on [@ProyogiBaba](https://x.com/ProyogiBaba) demonstrating real-world thematic content generation with a custom model. The bot maintains consistent engagement while cycling through diverse content themes.
+Currently running on [@ProyogiBaba](https://x.com/ProyogiBaba) demonstrating real-world thematic content generation with a custom model.
 
 ## 💬 Contact & Contributions
 
-For feedback, questions, or contributions, reach out to [here]((https://github.com/3thousand30/simple_twitter_ai_agent/issues/1)). We welcome community input to improve the AI agent's capabilities and expand its features.
+For feedback, questions, or contributions, reach out [here](https://github.com/3thousand30/simple_twitter_ai_agent/issues/1).
 
 ## 📝 License
 
