@@ -1,21 +1,46 @@
-# FOR EDUCATIONAL PURPOSE
+# AI Twitter Posting Agent (Educational Project)
 
-# AI-Powered Twitter Agent
+A ready-to-use agent that shows how AI can post content on Twitter (X). By default it generates up to **30 tweets per day** across four themes, using sample tweets to capture brand voice and maintain variety. The number of posts can be adjusted as needed.
 
-An intelligent Twitter posting bot that generates and publishes 30 tweets per day across 4 content themes using AI. The agent analyzes sample tweets to learn brand voice and maintains thematic variety while avoiding repetitive content.
+This project is mainly for **education and exploration**: a way to learn how to connect large language models (LLMs) with simple agents, apply basic MLP-style functionality, and see how posting automation works in practice. It goes beyond a basic POC, offering enough structure to be adapted or scaled.
 
-## Important Note
+## Important Context
 
-This tool is designed to operate within X API's free tier limits and will always stay within these constraints. We will continue to add features that are possible within the free tier's generous allowances, but won't implement functionality that requires paid API access.
+- **Educational purpose**: Learn how to build and run AI-driven posting agents.  
+- **Free tier by default**: Operates within X API’s free limits.  
+- **Scalable**: Can be extended to the paid tier (from $200/month) or enhanced with more advanced features.  
+- **Flexible design**: Modular, serverless setup makes it easy to extend with new themes or providers.  
 
 ## 🚀 Capabilities
 
-- **AI-Powered Content Generation**: Uses LLM providers to create authentic, varied tweets
-- **Thematic Intelligence**: Cycles through 4 main themes with 5 subthemes each (4-5 tweets per subtheme)
-- **Sample-Based Generation**: Uses sample tweets as context for maintaining brand voice
-- **Smart Variation**: Uses enhanced prompts to ensure variety and avoid repetitive content
-- **Stateless Design**: Each execution is independent while maintaining progression logic
-- **Provider Agnostic**: Works with OpenAI, Anthropic, DeepSeek, or any custom model
+- **AI content generation**: Uses LLMs to produce varied, natural tweets.  
+- **Organised themes and subthemes**: Posts are spread across 4 themes with 5 subthemes each, balancing content and making it easy to adjust or extend.  
+- **Configurable posting volume**: Default is 30 tweets per day, but this can be modified to suit your needs.  
+- **Voice alignment**: Learns from sample tweets to stay consistent with brand style.  
+- **Variation control**: Prompting techniques reduce repetition and improve diversity.  
+- **Stateless but progressive**: Each run is independent while still advancing through the theme cycle.  
+- **Provider flexibility**: Works with OpenAI, Anthropic, DeepSeek, or any compatible model.  
+
+## 🧠 Prompting & AI Optimization
+
+A key strength of this project is the way it builds prompts for the LLM.  
+The `constructPrompt` function combines **context, examples, and explicit rules** to make the output more authentic and varied.  
+
+### What the prompt does
+- **Theme awareness**: Passes the current theme, subtheme, and description into the model.  
+- **Voice alignment**: Injects sample tweets for style analysis (tone, structure, engagement).  
+- **Content rules**: Forces use of one specific hashtag, correct length (100–280 chars), and no unnecessary extras.  
+- **Variation techniques**: Encourages mixing of formats (questions, statements, tips), sentence length, and perspectives.  
+- **Output format**: Uses a clear instruction (`TWEET:` prefix) so results are easy to parse.  
+
+### Why it matters
+- Keeps tweets **consistent with brand voice**.  
+- Avoids repetitive structures and content fatigue.  
+- Makes the agent adaptable to any dataset of sample tweets.  
+- Shows a practical example of **prompt engineering best practices** for real-world tasks.  
+
+This approach can be reused or extended for other AI agents — e.g., blog writing, captions, or LinkedIn posts — where **style and variation** are as important as accuracy.  
+
 
 ## 🏗️ Architecture
 
