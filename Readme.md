@@ -62,7 +62,7 @@ const sampleTweets = [
 ];
 ```
 ### 3. Secrets Configuration
-####Option A: Store in AWS Secrets Manager:
+#### Option A: Store in AWS Secrets Manager:
 ```json
 {
   "twitter_api_key": "your_key",
@@ -74,7 +74,7 @@ const sampleTweets = [
   "ai_model": "model_name"
 }
 ```
-####Option B: Environment Variables, for local testing or Lambda console
+#### Option B: Environment Variables, for local testing or Lambda console
 ```
    export twitter_api_key=your_key
    export twitter_api_secret=your_secret
