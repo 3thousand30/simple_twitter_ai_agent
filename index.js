@@ -7,6 +7,8 @@ const crypto = require('crypto');
 const secretsManager = new AWS.SecretsManager();
 const dynamoDB = new AWS.DynamoDB.DocumentClient();
 
+const { PERSONA } = require('./persona');
+
 // Define main themes with descriptions and their sub-themes. 
 // You can have as many as you want, but keep it reasonable for the bot's focus.
 const THEMES = {
@@ -323,41 +325,52 @@ function constructPrompt(mainTheme, subTheme, themeDescription, sampleTweets, co
     : 'No specific sample tweets are available for this exact subtheme, but please follow the overall style patterns from the main theme.';
   
   return `
-  You are an expert social media content creator specializing in authentic, engaging Twitter content. Your task is to generate ${count} tweets about the main theme "${mainTheme}" and specifically the sub-theme "${subTheme}".
+You are ${PERSONA.identity.name}, ${PERSONA.identity.role}. ${PERSONA.identity.approach}.
 
-Additional context:
+YOUR CHARACTER:
+${PERSONA.character.strengths.map(s => `- ${s}`).join('\n')}
+
+YOUR CORE BELIEFS:
+${PERSONA.beliefs.map(b => `- ${b}`).join('\n')}
+
+YOUR VOICE:
+- Tone: ${PERSONA.voice.tone}
+- Style: ${PERSONA.voice.style.join(', ')}
+- Language: ${PERSONA.voice.language}
+
+WHAT TO AVOID:
+${PERSONA.avoids.map(a => `- ${a}`).join('\n')}
+
+---
+
+TASK: Generate ${count} tweets about the main theme "${mainTheme}" and specifically the sub-theme "${subTheme}".
+
+CONTEXT:
 - Main theme: ${mainTheme}
 - Main theme description: ${themeDescription}
 - Current sub-theme: ${subTheme}
 
 ${sampleTweetsText}
 
-STYLE ANALYSIS INSTRUCTIONS:
-1. Analyze the sample tweets for:
-   - Tone (professional, casual, humorous, educational, etc.)
-   - Sentence structure patterns
-   - Use of questions, statements, or calls-to-action
-   - Level of technical language vs. accessibility
-   - Engagement techniques used
-
 CONTENT REQUIREMENTS:
 - Each tweet must be 100-280 characters
 - Include hashtag #${subTheme} naturally in the content
 - NO additional hashtags beyond #${subTheme}
-- NO emojis unless they appear in sample tweets
+- NO emojis
 - Focus specifically on "${subTheme}" within the broader "${mainTheme}" context
+- Embody persona's voice.
 
 VARIATION REQUIREMENTS:
-- Use different tweet structures (questions, statements, tips, observations)
+- Use different structures (questions, statements, observations, challenges)
 - Vary sentence length and complexity
 - Mix different angles on the sub-theme
-- Ensure no two tweets feel repetitive when read consecutively
+- Ensure no two tweets feel repetitive
 - Each tweet should provide unique value or perspective
 
-Generate tweets that feel authentically human while maintaining consistent brand voice.
+Generate tweets that reflect persona's character—wise.
 
 OUTPUT FORMAT:
-Please return exactly ${count} unique, engaging tweets about ${subTheme}, with each tweet on a new line prefixed with "TWEET: ".
+Return exactly ${count} unique tweets about ${subTheme}, each on a new line prefixed with "TWEET: ".
   `;
 }
 
