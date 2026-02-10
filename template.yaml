@@ -17,7 +17,7 @@ Parameters:
 Globals:
   Function:
     Timeout: 300
-    Runtime: nodejs18.x
+    Runtime: nodejs22.x
     Environment:
       Variables:
         SECRET_NAME: !Ref SecretName

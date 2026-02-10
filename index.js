@@ -1,15 +1,18 @@
 const axios = require('axios');
-const AWS = require('aws-sdk');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, GetCommand, PutCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
+const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
 const OAuth = require('oauth-1.0a');
 const crypto = require('crypto');
 
-// Initialize AWS services
-const secretsManager = new AWS.SecretsManager();
-const dynamoDB = new AWS.DynamoDB.DocumentClient();
+// Initialize AWS services (reused across warm Lambda invocations)
+const dynamoClient = new DynamoDBClient();
+const dynamoDB = DynamoDBDocumentClient.from(dynamoClient);
+const secretsManager = new SecretsManagerClient();
 
 const { PERSONA } = require('./persona');
 
-// Define main themes with descriptions and their sub-themes. 
+// Define main themes with descriptions and their sub-themes.
 // You can have as many as you want, but keep it reasonable for the bot's focus.
 const THEMES = {
   "Theme1": {
@@ -38,76 +41,94 @@ const THEMES = {
 const STATE_TABLE = process.env.STATE_TABLE || 'TwitterBotState';
 const SAMPLE_TWEETS_TABLE = process.env.SAMPLE_TWEETS_TABLE || 'TwitterBotSampleTweets';
 
-// Number of tweets to generate per execution.
-const TWEETS_PER_EXECUTION = 3; // Generate 3 tweets at a time, 5 times per day
+// Configuration
+const TWEETS_PER_EXECUTION = 3;
+const TWEETS_PER_SUBTHEME = 3;
 const TOTAL_TWEETS_PER_DAY = 15;
 
 exports.handler = async (event) => {
   try {
     // Get the current posting state
     const state = await getCurrentState();
-    
+
     // Log cycle progress for monitoring
     const progress = getCycleProgress(state);
     console.log(`Cycle Progress: ${progress.progressPercentage}% (${progress.completedSubThemes}/${progress.totalSubThemes} sub-themes)`);
-    console.log(`Current: ${progress.currentPosition} (${progress.tweetsInCurrentSubTheme}/3 tweets)`);
+    console.log(`Current: ${progress.currentPosition} (${progress.tweetsInCurrentSubTheme}/${TWEETS_PER_SUBTHEME} tweets)`);
     console.log(`Full cycle takes ~${progress.cycleDays} days`);
-    
+
     // Get sample tweets from DynamoDB
     const sampleTweets = await getSampleTweets();
-    
+
     // Get API credentials
     const credentials = await getCredentials();
-    
+
     // Determine which theme and subtheme to use
-    const { mainTheme, subTheme, tweetsPostedToday, currentSubThemeCount } = state;
-    
+    const { mainTheme, subTheme, currentSubThemeCount } = state;
+
     console.log(`Generating tweets for theme: ${mainTheme} - ${subTheme}`);
-    console.log(`Tweets posted today: ${tweetsPostedToday}, Current subtheme count: ${currentSubThemeCount}`);
-    
+    console.log(`Tweets posted today: ${state.tweetsPostedToday}, Current subtheme count: ${currentSubThemeCount}`);
+
+    // Only generate as many tweets as needed to complete the current subtheme
+    const tweetsToGenerate = Math.min(TWEETS_PER_EXECUTION, TWEETS_PER_SUBTHEME - currentSubThemeCount);
+
     // Filter sample tweets for the current subtheme
-    const relevantSampleTweets = sampleTweets.filter(tweet => 
+    const relevantSampleTweets = sampleTweets.filter(tweet =>
       tweet.toLowerCase().includes(`#${subTheme.toLowerCase()}`)
     );
-    
+
     console.log(`Found ${relevantSampleTweets.length} relevant sample tweets for ${subTheme}`);
-    
+
     // Generate tweets using AI
     const tweets = await generateTweets(
       mainTheme,
       subTheme,
       THEMES[mainTheme].description,
       relevantSampleTweets,
-      TWEETS_PER_EXECUTION,
+      tweetsToGenerate,
       credentials.ai_provider_api_key
     );
-    
+
     console.log(`Generated ${tweets.length} tweets`);
-    
-    // Post tweets to Twitter/X with slight delays between them
+
+    // Reset daily counter if it's a new day
+    const today = new Date().toDateString();
+    if (today !== state.currentDay) {
+      state.tweetsPostedToday = 0;
+      state.currentDay = today;
+    }
+
+    // Post tweets and persist progress after each successful post
     const postedTweets = [];
-    for (const tweet of tweets) {
+    for (let i = 0; i < tweets.length; i++) {
       await postTweet(
-        tweet, 
+        tweets[i],
         credentials.twitter_api_key,
         credentials.twitter_api_secret,
         credentials.twitter_access_token,
         credentials.twitter_access_token_secret
       );
-      postedTweets.push(tweet);
-      
-      // Add a delay between tweets to appear more natural
-      await new Promise(resolve => setTimeout(resolve, 30000)); // 30-second delay
+      postedTweets.push(tweets[i]);
+
+      // Save progress incrementally so partial failures don't lose state
+      state.currentSubThemeCount += 1;
+      state.tweetsPostedToday += 1;
+      await updateState(state);
+
+      // Delay between tweets to appear more natural (skip after last tweet)
+      if (i < tweets.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 30000));
+      }
     }
-    
-    // Update the state for next execution
-    const newState = calculateNextState(state, TWEETS_PER_EXECUTION);
+
+    // Advance to next subtheme if current one is complete
+    const newState = calculateNextState(state);
     await updateState(newState);
-    
+
     // Log the new state for monitoring
     const newProgress = getCycleProgress(newState);
     console.log(`Updated to: ${newProgress.currentPosition}`);
-    
+
     return {
       statusCode: 200,
       body: JSON.stringify({
@@ -120,7 +141,7 @@ exports.handler = async (event) => {
     };
   } catch (error) {
     console.error('Error in Lambda function:', error);
-    
+
     return {
       statusCode: 500,
       body: JSON.stringify({
@@ -133,32 +154,26 @@ exports.handler = async (event) => {
 
 // Get current state from DynamoDB
 async function getCurrentState() {
-  try {
-    const result = await dynamoDB.get({
-      TableName: STATE_TABLE,
-      Key: { id: 'current_state' }
-    }).promise();
-    
-    if (result.Item) {
-      return result.Item;
-    }
-    
-    // If no state exists, initialize with default values
-    const initialState = initializeState();
-    await updateState(initialState);
-    return initialState;
-  } catch (error) {
-    console.error('Error getting current state:', error);
-    // If there's an error, return a default state
-    return initializeState();
+  const result = await dynamoDB.send(new GetCommand({
+    TableName: STATE_TABLE,
+    Key: { id: 'current_state' }
+  }));
+
+  if (result.Item) {
+    return result.Item;
   }
+
+  // If no state exists, initialize with default values
+  const initialState = initializeState();
+  await updateState(initialState);
+  return initialState;
 }
 
 // Initialize state with default values
 function initializeState() {
   const mainThemes = Object.keys(THEMES);
   const firstMainTheme = mainThemes[0];
-  
+
   return {
     mainTheme: firstMainTheme,
     subTheme: THEMES[firstMainTheme].subThemes[0],
@@ -171,70 +186,46 @@ function initializeState() {
 
 // Update state in DynamoDB
 async function updateState(state) {
-  await dynamoDB.put({
+  await dynamoDB.send(new PutCommand({
     TableName: STATE_TABLE,
     Item: {
       id: 'current_state',
       ...state,
       lastUpdated: new Date().toISOString()
     }
-  }).promise();
+  }));
 }
 
-// Calculate the next state with multi-day cycling support
-function calculateNextState(currentState, tweetsPosted) {
-  const { mainTheme, subTheme, tweetsPostedToday, currentSubThemeCount } = currentState;
-  
-  // Check if it's a new day - but DON'T reset the theme progression
-  const today = new Date().toDateString();
-  let newTweetsPostedToday = tweetsPostedToday + tweetsPosted;
-  
-  if (today !== currentState.currentDay) {
-    // New day: reset daily counter but KEEP theme progression
-    newTweetsPostedToday = tweetsPosted;
+// Advance to next subtheme if current one is complete, otherwise return current state
+function calculateNextState(currentState) {
+  if (currentState.currentSubThemeCount < TWEETS_PER_SUBTHEME) {
+    return currentState;
   }
-  
-  // Continue theme progression regardless of day
-  const newSubThemeCount = currentSubThemeCount + tweetsPosted;
-  
-  // If we've posted 3 tweets for this subtheme, move to the next one
-  if (newSubThemeCount >= 3) {
-    const mainThemes = Object.keys(THEMES);
-    const currentMainThemeIndex = mainThemes.indexOf(mainTheme);
-    const currentSubThemes = THEMES[mainTheme].subThemes;
-    const currentSubThemeIndex = currentSubThemes.indexOf(subTheme);
-    
-    // Move to the next subtheme
-    if (currentSubThemeIndex + 1 < currentSubThemes.length) {
-      // Still have subthemes in the current main theme
-      return {
-        mainTheme,
-        subTheme: currentSubThemes[currentSubThemeIndex + 1],
-        tweetsPostedToday: newTweetsPostedToday,
-        currentSubThemeCount: 0, // Reset sub-theme counter
-        currentDay: today
-      };
-    } else {
-      // Move to the next main theme
-      const nextMainThemeIndex = (currentMainThemeIndex + 1) % mainThemes.length;
-      const nextMainTheme = mainThemes[nextMainThemeIndex];
-      
-      return {
-        mainTheme: nextMainTheme,
-        subTheme: THEMES[nextMainTheme].subThemes[0],
-        tweetsPostedToday: newTweetsPostedToday,
-        currentSubThemeCount: 0, // Reset sub-theme counter
-        currentDay: today
-      };
-    }
+
+  const { mainTheme, subTheme } = currentState;
+  const mainThemes = Object.keys(THEMES);
+  const currentMainThemeIndex = mainThemes.indexOf(mainTheme);
+  const currentSubThemes = THEMES[mainTheme].subThemes;
+  const currentSubThemeIndex = currentSubThemes.indexOf(subTheme);
+
+  // Move to the next subtheme within the same main theme
+  if (currentSubThemeIndex + 1 < currentSubThemes.length) {
+    return {
+      ...currentState,
+      subTheme: currentSubThemes[currentSubThemeIndex + 1],
+      currentSubThemeCount: 0
+    };
   }
-  
-  // Continue with the same subtheme
+
+  // Move to the next main theme (wraps around)
+  const nextMainThemeIndex = (currentMainThemeIndex + 1) % mainThemes.length;
+  const nextMainTheme = mainThemes[nextMainThemeIndex];
+
   return {
     ...currentState,
-    tweetsPostedToday: newTweetsPostedToday,
-    currentSubThemeCount: newSubThemeCount,
-    currentDay: today
+    mainTheme: nextMainTheme,
+    subTheme: THEMES[nextMainTheme].subThemes[0],
+    currentSubThemeCount: 0
   };
 }
 
@@ -242,31 +233,35 @@ function calculateNextState(currentState, tweetsPosted) {
 function getCycleProgress(currentState) {
   const mainThemes = Object.keys(THEMES);
   const currentMainThemeIndex = mainThemes.indexOf(currentState.mainTheme);
-  const currentSubThemes = THEMES[currentState.mainTheme].subThemes;
-  const currentSubThemeIndex = currentSubThemes.indexOf(currentState.subTheme);
-  
-  // Calculate total progress through all sub-themes
-  const completedSubThemes = currentMainThemeIndex * 5 + currentSubThemeIndex;
-  const totalSubThemes = mainThemes.length * 5; // 25 total
+  const currentSubThemeIndex = THEMES[currentState.mainTheme].subThemes.indexOf(currentState.subTheme);
+
+  // Calculate totals dynamically (works with any number of subthemes per theme)
+  let completedSubThemes = 0;
+  for (let i = 0; i < currentMainThemeIndex; i++) {
+    completedSubThemes += THEMES[mainThemes[i]].subThemes.length;
+  }
+  completedSubThemes += currentSubThemeIndex;
+
+  const totalSubThemes = mainThemes.reduce((sum, theme) => sum + THEMES[theme].subThemes.length, 0);
   const progressPercentage = Math.round((completedSubThemes / totalSubThemes) * 100);
-  
+
   return {
     currentPosition: `${currentState.mainTheme} -> ${currentState.subTheme}`,
     completedSubThemes: completedSubThemes,
     totalSubThemes: totalSubThemes,
     progressPercentage: progressPercentage,
     tweetsInCurrentSubTheme: currentState.currentSubThemeCount,
-    cycleDays: Math.ceil(totalSubThemes * 3 / 15) // 15 tweets per day
+    cycleDays: Math.ceil(totalSubThemes * TWEETS_PER_SUBTHEME / TOTAL_TWEETS_PER_DAY)
   };
 }
 
 // Get sample tweets from DynamoDB
 async function getSampleTweets() {
   try {
-    const result = await dynamoDB.scan({
+    const result = await dynamoDB.send(new ScanCommand({
       TableName: SAMPLE_TWEETS_TABLE
-    }).promise();
-    
+    }));
+
     return result.Items.map(item => item.text);
   } catch (error) {
     console.error('Error getting sample tweets:', error);
@@ -276,23 +271,23 @@ async function getSampleTweets() {
 
 // Get API credentials from Secrets Manager
 async function getCredentials() {
-  const result = await secretsManager.getSecretValue({
+  const result = await secretsManager.send(new GetSecretValueCommand({
     SecretId: process.env.SECRET_NAME,
-  }).promise();
-  
+  }));
+
   return JSON.parse(result.SecretString);
 }
 
-// Generate tweets using AI provider (Anthropic Claude 3 Haiku)
+// Generate tweets using AI provider (Anthropic Claude)
 async function generateTweets(mainTheme, subTheme, themeDescription, sampleTweets, count, apiKey) {
   // Construct the prompt
   const prompt = constructPrompt(mainTheme, subTheme, themeDescription, sampleTweets, count);
-  
+
   try {
     const response = await axios.post(
       'https://api.anthropic.com/v1/messages',
       {
-        model: 'claude-3-haiku-20240307',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 1000,
         messages: [
           {
@@ -309,7 +304,7 @@ async function generateTweets(mainTheme, subTheme, themeDescription, sampleTweet
         }
       }
     );
-    
+
     // Extract tweets from the AI response
     return extractTweets(response.data.content[0].text);
   } catch (error) {
@@ -320,10 +315,10 @@ async function generateTweets(mainTheme, subTheme, themeDescription, sampleTweet
 
 // Construct the prompt for AI tweet generation
 function constructPrompt(mainTheme, subTheme, themeDescription, sampleTweets, count) {
-  const sampleTweetsText = sampleTweets.length > 0 
+  const sampleTweetsText = sampleTweets.length > 0
     ? `Here are some sample tweets for this theme:\n${sampleTweets.join('\n')}`
     : 'No specific sample tweets are available for this exact subtheme, but please follow the overall style patterns from the main theme.';
-  
+
   return `
 You are ${PERSONA.identity.name}, ${PERSONA.identity.role}. ${PERSONA.identity.approach}.
 
@@ -378,7 +373,7 @@ Return exactly ${count} unique tweets about ${subTheme}, each on a new line pref
 function extractTweets(response) {
   const lines = response.split('\n');
   const tweets = [];
-  
+
   for (const line of lines) {
     if (line.startsWith('TWEET: ')) {
       const tweet = line.replace('TWEET: ', '').trim();
@@ -387,7 +382,7 @@ function extractTweets(response) {
       }
     }
   }
-  
+
   return tweets;
 }
 
@@ -408,19 +403,19 @@ async function postTweet(content, apiKey, apiSecret, accessToken, accessTokenSec
           .digest('base64');
       }
     });
-    
+
     // Request data
     const requestData = {
       url: 'https://api.twitter.com/2/tweets',
       method: 'POST'
     };
-    
+
     // Generate authorization header
     const authHeader = oauth.toHeader(oauth.authorize(requestData, {
       key: accessToken,
       secret: accessTokenSecret
     }));
-    
+
     // Post the tweet
     await axios({
       url: requestData.url,
@@ -433,7 +428,7 @@ async function postTweet(content, apiKey, apiSecret, accessToken, accessTokenSec
         text: content
       }
     });
-    
+
     console.log('Successfully posted tweet:', content);
   } catch (error) {
     console.error('Error posting tweet:', error);
